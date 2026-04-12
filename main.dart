@@ -1,7 +1,4 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:fl_chart/fl_chart.dart';
 
 void main() {
   runApp(MyApp());
@@ -11,119 +8,89 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Stock App',
-      home: HomeScreen(),
+      title: 'Expense Manager',
+      debugShowCheckedModeBanner: false,
+      home: ExpenseHome(),
     );
   }
 }
 
-class HomeScreen extends StatefulWidget {
-  @override
-  _HomeScreenState createState() => _HomeScreenState();
+class Expense {
+  String title;
+  double amount;
+
+  Expense(this.title, this.amount);
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  List<double> prices = [];
-  List<double> forecast = [];
-  String symbol = "RELIANCE.NS";
-
-  Future<void> fetchStock() async {
-    final response = await http.get(
-      Uri.parse('http://10.0.2.2:8000/stock?symbol=$symbol'),
-    );
-
-    final data = json.decode(response.body);
-    setState(() {
-      prices = List<double>.from(data['prices']);
-    });
-  }
-
-  Future<void> fetchPrediction() async {
-    final response = await http.get(
-      Uri.parse('http://10.0.2.2:8000/predict?symbol=$symbol'),
-    );
-
-    final data = json.decode(response.body);
-    setState(() {
-      forecast = List<double>.from(data['forecast']);
-    });
-  }
-
+class ExpenseHome extends StatefulWidget {a
   @override
-  void initState() {
-    super.initState();
-    fetchStock();
-    fetchPrediction();
+  _ExpenseHomeState createState() => _ExpenseHomeState();
+}
+
+class _ExpenseHomeState extends State<ExpenseHome> {
+  final List<Expense> _expenses = [];
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
+
+  void _addExpense() {
+    final String title = _titleController.text;
+    final double? amount = double.tryParse(_amountController.text);
+
+    if (title.isEmpty || amount == null) return;
+
+    setState(() {
+      _expenses.add(Expense(title, amount));
+    });
+
+    _titleController.clear();
+    _amountController.clear();
   }
 
-  List<FlSpot> getSpots(List<double> data) {
-    return data.asMap().entries.map((e) {
-      return FlSpot(e.key.toDouble(), e.value);
-    }).toList();
+  double get totalExpense {
+    return _expenses.fold(0, (sum, item) => sum + item.amount);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Stock Analysis")),
-      body: SingleChildScrollView(
+      appBar: AppBar(
+        title: Text("Expense Manager"),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
         child: Column(
           children: [
+            TextField(
+              controller: _titleController,
+              decoration: InputDecoration(labelText: "Expense Title"),
+            ),
+            TextField(
+              controller: _amountController,
+              decoration: InputDecoration(labelText: "Amount"),
+              keyboardType: TextInputType.number,
+            ),
             SizedBox(height: 10),
-
-            Text("Stock: $symbol", style: TextStyle(fontSize: 18)),
-
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextField(
-                decoration: InputDecoration(
-                  labelText: "Enter Stock (e.g. TCS.NS)",
-                  border: OutlineInputBorder(),
-                ),
-                onSubmitted: (value) {
-                  symbol = value;
-                  fetchStock();
-                  fetchPrediction();
+            ElevatedButton(
+              onPressed: _addExpense,
+              child: Text("Add Expense"),
+            ),
+            SizedBox(height: 20),
+            Text(
+              "Total: ₹${totalExpense.toStringAsFixed(2)}",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            Divider(),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _expenses.length,
+                itemBuilder: (context, index) {
+                  return ListTile(
+                    title: Text(_expenses[index].title),
+                    trailing: Text("₹${_expenses[index].amount}"),
+                  );
                 },
               ),
-            ),
-
-            SizedBox(height: 20),
-
-            Text("Price Chart"),
-            Container(
-              height: 200,
-              padding: EdgeInsets.all(10),
-              child: prices.isEmpty
-                  ? CircularProgressIndicator()
-                  : LineChart(
-                      LineChartData(
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: getSpots(prices),
-                          )
-                        ],
-                      ),
-                    ),
-            ),
-
-            SizedBox(height: 20),
-
-            Text("7-Day Prediction"),
-            Container(
-              height: 200,
-              padding: EdgeInsets.all(10),
-              child: forecast.isEmpty
-                  ? CircularProgressIndicator()
-                  : LineChart(
-                      LineChartData(
-                        lineBarsData: [
-                          LineChartBarData(
-                            spots: getSpots(forecast),
-                          )
-                        ],
-                      ),
-                    ),
             ),
           ],
         ),
